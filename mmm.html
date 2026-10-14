@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Magic Tiles Fast</title>
+    <style>
+        body {
+            background: #0f172a;
+            color: #ffffff;
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        #score {
+            font-size: 48px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        canvas {
+            background-color: #020617;
+            border: 3px solid #00f2fe;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="score">0</div>
+    <canvas id="gameCanvas" width="360" height="600"></canvas>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const scoreEl = document.getElementById("score");
+
+        const LANES = 4;
+        const LANE_W = canvas.width / LANES;
+        const TILE_H = 150;
+        const TARGET_Y = canvas.height - 100;
+
+        let tiles = [];
+        let score = 0;
+        let speed = 9;         // Immediate fast start speed
+        let spawnInterval = 35; // Rapidly drops tiles down
+        let timer = 0;
+        let isOver = false;
+
+        class Tile {
+            constructor(lane) {
+                this.lane = lane;
+                this.x = lane * LANE_W;
+                this.y = -TILE_H;
+                this.hit = false;
+            }
+            update() {
+                this.y += speed;
+                if (this.y > TARGET_Y + 30 && !this.hit) {
+                    isOver = true;
+                }
+            }
+            draw() {
+                if (this.hit) {
+                    ctx.fillStyle = "rgba(0, 242, 254, 0.1)";
+                } else {
+                    ctx.fillStyle = "#00f2fe";
+                }
+                ctx.fillRect(this.x + 2, this.y, LANE_W - 4, TILE_H - 4);
+            }
+        }
+
+        function tap(lane) {
+            if (isOver) {
+                tiles = [];
+                score = 0;
+                speed = 9;
+                spawnInterval = 35;
+                isOver = false;
+                scoreEl.innerText = score;
+                return;
+            }
+
+            for (let t of tiles) {
+                if (t.lane === lane && !t.hit) {
+                    let bottom = t.y + TILE_H;
+                    if (bottom >= TARGET_Y - 100 && t.y <= TARGET_Y + 60) {
+                        t.hit = true;
+                        score++;
+                        scoreEl.innerText = score;
+                        speed += 0.2;
+                        spawnInterval = Math.max(18, spawnInterval - 1);
+                        break;
+                    }
+                }
+            }
+        }
+
+        function loop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Columns layout lines
+            ctx.strokeStyle = "#1e293b";
+            for (let i = 1; i < LANES; i++) {
+                ctx.beginPath(); ctx.moveTo(i * LANE_W, 0); ctx.lineTo(i * LANE_W, canvas.height); ctx.stroke();
+            }
+
+            // Hit zone target bar
+            ctx.strokeStyle = "#00f2fe";
+            ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(0, TARGET_Y); ctx.lineTo(canvas.width, TARGET_Y); ctx.stroke();
+
+            if (!isOver) {
+                timer++;
+                if (timer >= spawnInterval) {
+                    tiles.push(new Tile(Math.floor(Math.random() * LANES)));
+                    timer = 0;
+                }
+                tiles.forEach(t => { t.update(); t.draw(); });
+                tiles = tiles.filter(t => t.y < canvas.height + 50);
+            } else {
+                ctx.fillStyle = "rgba(0,0,0,0.8)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "#ff0055";
+                ctx.font = "bold 30px sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2);
+                ctx.fillStyle = "#fff";
+                ctx.font = "16px sans-serif";
+                ctx.fillText("Tap screen or spacebar to retry", canvas.width / 2, canvas.height / 2 + 40);
+            }
+
+            requestAnimationFrame(loop);
+        }
+
+        // Control binds
+        document.addEventListener("keydown", (e) => {
+            if (e.key.toLowerCase() === 'a') tap(0);
+            if (e.key.toLowerCase() === 's') tap(1);
+            if (e.key.toLowerCase() === 'd') tap(2);
+            if (e.key.toLowerCase() === 'f') tap(3);
+            if (e.code === "Space" && isOver) tap(0);
+        });
+
+        canvas.addEventListener("mousedown", (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            tap(Math.floor(clickX / LANE_W));
+        });
+
+        loop();
+    </script>
+</body>
+</html>
